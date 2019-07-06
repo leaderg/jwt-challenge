@@ -4,9 +4,7 @@ require('dotenv').config();
 //Server and dependencies
 const express= require('express');
 const jwt= require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 const body_parser = require('body-parser');
-const User=require('./user');
 
 
 //Assigning sensitive data.
@@ -24,9 +22,11 @@ App.get('/register', (req, res) => {
   res.send(token)
 })
 
-App.get('/data', function (req, res, next) {
-    //middleware function to gather token from header.
-    //if missing will give a forbidden response.
+App.get('/data',
+  function (req, res, next) {
+    //Middleware function to gather token from header.
+    //Assumes "authorization": "bearer tokenKey" format
+    //If header is missing, will give a forbidden response.
     const header = req.headers['authorization'];
 
     if(typeof header !== 'undefined') {
@@ -52,13 +52,6 @@ App.get('/data', function (req, res, next) {
      }
     })
 })
-
-
-/*  Takes a post with the body containing a username and password.
-    Checks with mongoDB entries to find a match. If it finds one it
-    assigns a the current user using jwt.sign() which includes a 20 minute expiry. */
-
-
 
 
 App.listen(PORT, () => {
