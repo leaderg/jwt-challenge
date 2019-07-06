@@ -17,62 +17,47 @@ const KEY = process.env.TOKEN; // Secret Key for jwt
 const App = express();
 App.use(body_parser.json());
 
-//jwt autorization check on all server calls.
-//userId from payload is put into req.user
-App.use(function(req,res,next){
-  try{
-  const token = req.headers.authorization.split(" ")[1]
-  jwt.verify(token, KEY, function (err, payload) {
-    console.log(payload)
-    if (payload) {
-      User.findById(payload.userId).then(
-        (doc)=>{
-          req.user=doc;
-          next()
-        }
-      )
-    } else {
-      next()
-    }
-  })
-  } catch(e) {
-    next()
-  }
-});
 
 App.get('/register', (req, res) => {
+  //Sends jwt token as reply, in production would pass to front end client.
   let token=jwt.sign({userId: 'TestUser'}, KEY, {expiresIn: 60 * 20 });
-  res.json({token})
+  res.send(token)
 })
 
-App.post('/data', (req, res) => {
-  const token = req.body.token
-  jwt.verify(token, KEY, function (err, payload) {
-    res.json({payload})
-  })
+App.get('/data', function (req, res, next) {
+    //middleware function to gather token from header.
+    //if missing will give a forbidden response.
+    const header = req.headers['authorization'];
+
+    if(typeof header !== 'undefined') {
+      const bearer = header.split(' ');
+      req.token = bearer[1];
+      next();
+    } else {
+      res.sendStatus(403)
+    }
+  }, (req, res) => {
+    jwt.verify(req.token, KEY, function (err, payload) {
+      if(err){
+        //If token does not match the key, will give a forbidden response.
+        res.sendStatus(403);
+      } else {
+        //creates a new JWT token to refresh expiry on activity. Again would traditionally be sent to front end client.
+        let refreshedToken=jwt.sign({userId: payload.userId}, KEY, {expiresIn: 60 * 20 });
+        res.json({
+          serverMessage: "JWT token valid.",
+          refreshedToken,
+          payload
+        })
+     }
+    })
 })
+
+
 /*  Takes a post with the body containing a username and password.
     Checks with mongoDB entries to find a match. If it finds one it
     assigns a the current user using jwt.sign() which includes a 20 minute expiry. */
-App.post('/login', (req,res) => {
-  User.findOne({username:req.body.username}).then((user)=>{
-    user.passwordCheck(req.body.password,(err,isMatch)=>{
-      if(isMatch){
-        let token=jwt.sign({userId:user.id}, KEY, {expiresIn: 60 * 20 });
-        res.status(200).json({
-            userId:user.id,
-            username:user.username,
-            token
-        })
-      } else {
-        res.status(400).json({message:'Invalid Password/Username'});
-      }
-    })
-  })
-  .catch((err)=>{
-    res.status(400).json({message:'Invalid Password/Username'});
-  })
-})
+
 
 
 
